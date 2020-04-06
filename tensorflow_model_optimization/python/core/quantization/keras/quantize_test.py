@@ -151,6 +151,13 @@ class QuantizeAnnotateTest(tf.test.TestCase):
     with self.assertRaises(ValueError):
       quantize.quantize_annotate_model(layer)
 
+  class CustomLayer(keras.layers.Dense):
+    pass
+
+  def testQuantizeAnnotateModel_PassesWithCustomLayerWithoutQuantizeScope(self):
+    model = keras.Sequential([self.CustomLayer(3, input_shape=(2,))])
+    quantize_annotate_model(model)
+
   # TODO(tfmot): this behavior may change in the future. If a user
   # start training a model without quantization and then wants to apply
   # it, not removing the optimizer would allow them to skip recompiling
@@ -291,6 +298,20 @@ class QuantizeApplyTest(tf.test.TestCase):
 
   class CustomLayer(keras.layers.Dense):
     pass
+
+  def testQuantizeCustomLayerWithoutQuantizeScope_RaisesError(self):
+    annotated_model = keras.Sequential(
+        [quantize_annotate_layer(self.CustomLayer(3, input_shape=(2,)))])
+
+    with self.assertRaises(ValueError) as err:
+      quantize_apply(annotated_model)
+
+    expected_error = (
+        'Call to `quantize_scope` is missing. For a custom Keras object of '
+        'class C, place your calls to `quantize_apply` under the scope of '
+        '`quantize_scope({"C": C})`.')
+
+    self.assertEqual(str(err.exception), expected_error)
 
   def testQuantize_RaisesErrorIfNoQuantizeConfig(self):
     annotated_model = keras.Sequential([
